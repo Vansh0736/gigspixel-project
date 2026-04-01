@@ -3,19 +3,60 @@
 
 <img width="1318" height="565" alt="image" src="https://github.com/user-attachments/assets/8f041fb9-51a0-45cf-977b-d27e6104f657" />
 
-## Overview
-In computational pathology, analyzing uncurated Whole Slide Images (WSIs) presents a massive challenge due to the "Memory Wall," as a single image often exceeds 50,000 x 50,000 pixels. This project implements a distributed data pipeline and an advanced transformer architecture to perform highly accurate binary classification (Normal vs. Tumor) on gigapixel-scale images without requiring exhaustive pixel-level annotations.
+# Gigapixel AI: Attention-Based Multiple Instance Learning for Computational Pathology
 
-## Architecture & Methodology
+**Author:** Vansh Jain
+**Domain:** Medical AI / Computational Pathology 
+**Tech Stack:** PyTorch, TorchVision, NumPy, OpenSlide, Scikit-Learn
 
-### 1. Distributed Data Engineering
-To bypass severe hardware timeouts and VRAM limitations, the data extraction pipeline was parallelized across 7 independent GPU nodes. The pipeline utilizes CTransPath, a CNN-Transformer hybrid foundation model, to extract 768-dimensional latent vectors from raw pixel patches. This strategy successfully compressed 500GB of raw WSI data into a unified, manageable 27GB latent space.
+##  Project Overview
+This repository contains an end-to-end deep learning pipeline for the binary classification (Tumor vs. Normal) of Whole Slide Images (WSIs) in medical pathology. 
 
-### 2. Attention-Based Multiple Instance Learning (ABMIL)
-Standard Vision Transformers (ViTs) scale quadratically, which leads to catastrophic Out-Of-Memory (OOM) errors when processing WSIs containing 10,000+ patches. To solve this $O(N^2)$ complexity constraint, this project implements Attention-Based Multiple Instance Learning (ABMIL). By treating the entire WSI as a "bag" of instances and applying Gated Attention, the computational complexity is reduced to Linear $O(N)$.
+Unlike standard computer vision datasets (e.g., ImageNet), pathology WSIs are incredibly massive—often exceeding **50,000 $\times$ 50,000 pixels**. This project successfully diagnoses tumors in these gigapixel images by overcoming extreme hardware constraints using an **Attention-Based Multiple Instance Learning (ABMIL)** architecture.
 
-## Clinical Results
-The final diagnostic pipeline achieved highly competitive metrics, successfully isolating the tumor signal from massive spatial noise:
-* **Validation AUC:** 0.8537
-* **Confusion Matrix Performance:** 29 True Negatives and 17 True Positives, with minimal misclassifications (5 False Negatives, 3 False Positives).
-* **Deployment Efficiency:** The entire diagnostic intelligence was exported into an ultra-lightweight 3.26 MB portable weight file, highly optimized for low-resource deployment.
+---
+
+##  The Core Bottleneck: The Gigapixel Memory Wall
+**The Problem:** Standard Convolutional Neural Networks (ResNet, VGG) are designed for images ranging from $224 \times 224$ to $1024 \times 1024$ pixels. 
+Attempting to pass a raw $50,000 \times 50,000$ WSI through a standard CNN causes an immediate **CUDA Out-Of-Memory (OOM) error** on any modern GPU. Downsampling the image to fit into memory destroys the microscopic cellular level details required to identify malignant tumors.
+
+**The Diagnostic Challenge:** A slide may contain billions of pixels, but a tumor might only occupy a microscopic fraction of that space. If the model predicts "Tumor," it must base that prediction on specific, localized anomalous cellular structures, not background tissue.
+
+---
+
+##  The Solution: Architectural Paradigm Shift to ABMIL
+To bypass the memory wall, I discarded the monolithic CNN approach and implemented a **Multiple Instance Learning (MIL)** paradigm. 
+
+Instead of treating the slide as one giant image, the architecture treats the WSI as a "Bag" of smaller patches (instances). 
+
+### The Pipeline Architecture:
+1. **Dynamic Tiling (Preprocessing):** * The gigapixel WSI is dynamically sliced into thousands of smaller, manageable $256 \times 256$ patches.
+   * Background (empty white space) is filtered out using Otsu's thresholding to save compute cycles.
+
+2. **Independent Feature Extraction:**
+   * Each $256 \times 256$ patch is passed independently through a highly optimized CNN backbone (Feature Extractor) to generate a dense latent representation vector. 
+
+3. **Attention-Based Aggregation (The Breakthrough):**
+   * *Standard MIL* assumes that if *one* patch is malignant, the whole bag is malignant (Max-Pooling). However, this creates massive false-positive rates due to uncurated dataset noise.
+   * *My Architecture* utilizes a custom **Attention Mechanism**. A secondary neural network evaluates the latent vector of every single patch and assigns it an **Attention Score** (weighting its importance).
+   * The network learns to naturally "ignore" healthy tissue (low attention) and heavily weight malignant cells (high attention).
+
+4. **Slide-Level Classification:**
+   * The attention-weighted patch vectors are aggregated into a single slide-level representation and passed through a final classification head to output the tumor probability.
+
+---
+
+##  Results & Performance Evaluation
+
+The model was evaluated on highly uncurated, real-world pathological datasets containing extensive staining variations and imaging artifacts.
+
+* **Validation AUC:** **0.8537**
+* **Performance Note:** The 0.8537 Area Under the Curve demonstrates a highly robust specificity. The attention mechanism successfully isolated tumor signatures without being distracted by artifacts, minimizing false positives despite the massive spatial size of the input data.
+
+---
+
+##  Key Engineering Takeaways
+* **Compute Efficiency:** By utilizing ABMIL and aggressive background filtering, inference can be run on gigapixel images using standard consumer GPUs without VRAM exhaustion.
+* **Interpretability:** The Attention Scores inherently provide a "heat map" of the WSI. Pathologists can visually inspect which specific $256 \times 256$ patches the neural network deemed "most malignant," providing critical explainability in medical AI.
+
+---
