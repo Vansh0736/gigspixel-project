@@ -60,3 +60,8 @@ The model was evaluated on highly uncurated, real-world pathological datasets co
 * **Interpretability:** The Attention Scores inherently provide a "heat map" of the WSI. Pathologists can visually inspect which specific $256 \times 256$ patches the neural network deemed "most malignant," providing critical explainability in medical AI.
 
 ---
+DataSet: The Camelyon16 dataset consists of 399 whole-slide images (WSIs) of H&E stained breast cancer sentinel lymph nodes collected from two centers in the Netherlands: Radboud University Medical Center and University Medical Center Utrecht. 
+
+The dataset is split into 270 training slides (111 tumor-positive, 259 negative) and 129 testing slides (49 tumor-positive, 80 negative). 
+
+
